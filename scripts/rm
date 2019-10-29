@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#
+# Lists helm charts (a.k.a. repositories)
+#
+#   rm <repo>
+#
+
+function usage() {
+  echo "Usage: titan rm" 1>&2
+  exit 2
+}
+
+while getopts ":" o; do
+  case "${o}" in
+    *)
+      usage
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+repo_name=$1
+
+[[ -z "$repo_name" ]] && usage
+
+exec helm delete --purge $repo_name

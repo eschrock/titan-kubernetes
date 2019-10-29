@@ -1,0 +1,10 @@
+#!/bin/bash
+
+die() { echo "$*" 1>&2 ; exit 1; }
+
+[[ $# -le 0 ]] && die "missing subcommand"
+subcommand=$(dirname $0)/scripts/$1
+
+[[ -x $subcommand ]] || die "unknown subcommand $1"
+shift
+exec $subcommand "$@"
