@@ -23,17 +23,23 @@ repo_name=$1
 
 [[ -z "$repo_name" ]] && usage
 
-# Remove any port forwarding
-services=$(kubectl get --selector=release=hello-world service --no-headers -o custom-columns=":metadata.name")
+echo "Stopping port forwarding"
+services=$(kubectl get --selector=release=$repo_name service --no-headers -o custom-columns=":metadata.name")
 for service in $services; do
     ps -ef | grep "kubectl port-forward" | grep "svc/$service"  | awk '{print $2}' | xargs kill
 done
 
-# Remove the helm release
+echo "Deleting release"
 helm delete --purge $repo_name || exit 1
 
-# Remove any remaining volumes
-pvcs=$(kubectl get --selector=release=hello-world pvc --no-headers -o custom-columns=":metadata.name")
+echo "Deleting volumes"
+pvcs=$(kubectl get --selector=release=$repo_name pvc --no-headers -o custom-columns=":metadata.name")
 for pvc in $pvcs; do
     kubectl delete pvc $pvc
+done
+
+echo "Deleting snapshots"
+snapshots=$(kubectl get --selector=release=$repo_name volumesnapshot --no-headers -o custom-columns=":metadata.name")
+for snap in $snapshots; do
+    kubectl delete volumesnapshot $snap
 done

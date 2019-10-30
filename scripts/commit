@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#
+# Commits state for every volume in a release by issuing a snapshot command.
+#
+#   commit <repo>
+#
+
+function usage() {
+  echo "Usage: titan commit <repo>" 1>&2
+  exit 2
+}
+
+while getopts ":" o; do
+  case "${o}" in
+    *)
+      usage
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+repo_name=$1
+
+[[ -z "$repo_name" ]] && usage
+
+uuid=$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d -)
+echo ${uuid}
+
+# Get any PVCs associated with the release
+pvcs=$(kubectl get --selector=release=$repo_name pvc --no-headers -o custom-columns=":metadata.name")
+for pvc in $pvcs; do
+  snap_name=$repo_name-$uuid
+  kubectl create -f - <<EOF
+apiVersion: snapshot.storage.k8s.io/v1alpha1
+kind: VolumeSnapshot
+metadata:
+  name: $snap_name
+  labels:
+    release: $repo_name
+spec:
+  source:
+    name: $pvc
+    kind: PersistentVolumeClaim
+EOF
+  [[ $? == 0 ]] || exit 1
+  ready=false
+  while [[ $ready != "true" ]]; do
+    status=$(kubectl get volumesnapshot $snap_name -o json)
+    ready=$(echo $status | jq -r ".status.readyToUse")
+    message=$(echo $status | jq -r ".status.error.message")
+    if [[ $message != null ]]; then
+      echo $message
+      kubectl delete volumesnapshot $snap_name
+      exit 1
+    fi
+    sleep 1
+  done
+done
