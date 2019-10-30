@@ -1,0 +1,16 @@
+#!/usr/bin/python
+
+import sys, json;
+data = json.load(sys.stdin)
+
+replace={}
+for arg in sys.argv[1:]:
+    pair = arg.split("=")
+    replace[pair[0]] = pair[1]
+
+for vol in data['spec']['template']['spec']['volumes']:
+    for key in replace:
+        if vol['name'] == key:
+            vol['persistentVolumeClaim']['claimName'] = replace[key]
+
+print(json.dumps(data))
